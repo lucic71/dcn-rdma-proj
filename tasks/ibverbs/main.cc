@@ -138,22 +138,22 @@ int main(int argc, char *argv[])
 	if (vm.count("server"))
 		server = true;
 
-	// TODO 6.1: populate dev_list using ibv_get_device_list - use num_devices as argument
+	// TODO 7.1: populate dev_list using ibv_get_device_list - use num_devices as argument
 	dev_list = ibv_get_device_list(&num_devices);
 
 	for (int i = 0; i < num_devices; i++)
 	{
-		// TODO 6.1: get the device name, using ibv_get_device_name
+		// TODO 7.1: get the device name, using ibv_get_device_name
 
-		// TODO 6.1: compare it to the device provided in the program arguments (dev_str)
+		// TODO 7.1: compare it to the device provided in the program arguments (dev_str)
 		//           and open the device; store the device context in "context"
 	}
 
-	// TODO 6.1: allocate a PD (protection domain), using ibv_alloc_pd
+	// TODO 7.1: allocate a PD (protection domain), using ibv_alloc_pd
 
-	// TODO 6.1: create a CQ (completion queue) for the send operations, using ibv_create_cq
+	// TODO 7.1: create a CQ (completion queue) for the send operations, using ibv_create_cq
 
-	// TODO 6.1: create a CQ for the write operations, using ibv_create_cq
+	// TODO 7.1: create a CQ for the write operations, using ibv_create_cq
 
 	memset(&qp_init_attr, 0, sizeof(qp_init_attr));
 
@@ -168,12 +168,12 @@ int main(int argc, char *argv[])
 	qp_init_attr.cap.max_send_sge = 1;
 	qp_init_attr.cap.max_recv_sge = 1;
 
-	// TODO 6.1: create a QP (queue pair) for the send operations, using ibv_create_qp
+	// TODO 7.1: create a QP (queue pair) for the send operations, using ibv_create_qp
 
 	qp_init_attr.recv_cq = write_cq;
 	qp_init_attr.send_cq = write_cq;
 
-	// TODO 6.1: create a QP for the write operations, using ibv_create_qp
+	// TODO 7.1: create a QP for the write operations, using ibv_create_qp
 
 	memset(&qp_attr, 0, sizeof(qp_attr));
 
@@ -184,11 +184,11 @@ int main(int argc, char *argv[])
 	                          IBV_ACCESS_REMOTE_WRITE | 
 	                          IBV_ACCESS_REMOTE_READ;
 
-	// TODO 6.1: move both QPs in the INIT state, using ibv_modify_qp
+	// TODO 7.1: move both QPs in the INIT state, using ibv_modify_qp
 
-	// TODO 6.1: use ibv_query_port to get information about port number 1
+	// TODO 7.1: use ibv_query_port to get information about port number 1
 
-	// TODO 6.1: fill gidEntries with the GID table entries of the port, using ibv_query_gid_table
+	// TODO 7.1: fill gidEntries with the GID table entries of the port, using ibv_query_gid_table
 
 	for (auto &entry : gidEntries)
 	{
@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 		goto free_write_qp;
 	}
 
-	// TODO 6.1: register the "data_send" and "data_write" buffers for RDMA operations, using ibv_reg_mr;
+	// TODO 7.1: register the "data_send" and "data_write" buffers for RDMA operations, using ibv_reg_mr;
 	//           store the resulting mrs in send_mr and write_mr
 
 	memcpy(&local.write_mr, write_mr, sizeof(local.write_mr));
@@ -284,11 +284,11 @@ int main(int argc, char *argv[])
 	qp_attr.ah_attr.dlid = 1;
 	qp_attr.dest_qp_num  = remote.send_qp_num;
 
-	// TODO 6.1: move the send QP into the RTR state, using ibv_modify_qp
+	// TODO 7.1: move the send QP into the RTR state, using ibv_modify_qp
 
 	qp_attr.dest_qp_num  = remote.write_qp_num;
 
-	// TODO 6.1: move the write QP into the RTR state, using ibv_modify_qp
+	// TODO 7.1: move the write QP into the RTR state, using ibv_modify_qp
 
 	qp_attr.qp_state      = ibv_qp_state::IBV_QPS_RTS;
 	qp_attr.timeout       = 0;
@@ -297,7 +297,7 @@ int main(int argc, char *argv[])
 	qp_attr.sq_psn        = 0;
 	qp_attr.max_rd_atomic = 0;
 
-	// TODO 6.1: move the send and write QPs into the RTS state, using ibv_modify_qp
+	// TODO 7.1: move the send and write QPs into the RTS state, using ibv_modify_qp
 
 	memset(data_send, 0, sizeof(data_send));
 	memset(data_write, 0, sizeof(data_write));
@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 	{
 		memcpy(data_write, "Hello, but with write", 21);
 
-		// TODO 6.2: initialise sg_write with the write mr address, size and lkey
+		// TODO 7.2: initialise sg_write with the write mr address, size and lkey
 		
 		// create a work request, with the Write With Immediate operation
 		memset(&wr_write, 0, sizeof(wr_write));
@@ -318,12 +318,12 @@ int main(int argc, char *argv[])
 
 		wr_write.imm_data   = htonl(0x1234);
 
-		// TODO 6.2: fill the wr.rdma field of wr_write with the remote address and key
+		// TODO 7.2: fill the wr.rdma field of wr_write with the remote address and key
 		//         (you have them in the "remote" structure)
 
-		// TODO 6.2: post the work request, using ibv_post_send
+		// TODO 7.2: post the work request, using ibv_post_send
 
-		// TODO 6.3: initialise sg_send with the send mr address, size and lkey
+		// TODO 7.3: initialise sg_send with the send mr address, size and lkey
 
 		// create a receive work request
 		memset(&wr_recv, 0, sizeof(wr_recv));
@@ -331,11 +331,11 @@ int main(int argc, char *argv[])
 		wr_recv.sg_list    = &sg_recv;
 		wr_recv.num_sge    = 1;
 
-		// TODO 6.3: post the receive work request, using ibv_post_recv, for the send QP
+		// TODO 7.3: post the receive work request, using ibv_post_recv, for the send QP
 
-		// TODO 6.3: poll send_cq, using ibv_poll_cq, until it returns different than 0
+		// TODO 7.3: poll send_cq, using ibv_poll_cq, until it returns different than 0
 
-		// TODO 6.3: check the wc (work completion) structure status;
+		// TODO 7.3: check the wc (work completion) structure status;
 		//           return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
 
 		cout << data_send << endl;
@@ -344,22 +344,22 @@ int main(int argc, char *argv[])
 	{
 		memcpy(data_send, "Hello", 5);
 
-		// TODO 6.2: initialise sg_write with the write mr address, size and lkey
+		// TODO 7.2: initialise sg_write with the write mr address, size and lkey
 		memset(&wr_recv, 0, sizeof(wr_recv));
 		wr_recv.wr_id      = 0;
 		wr_recv.sg_list    = &sg_recv;
 		wr_recv.num_sge    = 1;
 
-		// TODO 6.2: post a receive work request, using ibv_post_recv, for the write QP
+		// TODO 7.2: post a receive work request, using ibv_post_recv, for the write QP
 
-		// TODO 6.2: poll write_cq, using ibv_poll_cq, until it returns different than 0
+		// TODO 7.2: poll write_cq, using ibv_poll_cq, until it returns different than 0
 
-		// TODO 6.2: check the wc (work completion) structure status;
+		// TODO 7.2: check the wc (work completion) structure status;
 		//           return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
 
 		cout << data_write << endl;
 
-		// TODO 6.3: initialise sg_send with the send mr address, size and lkey
+		// TODO 7.3: initialise sg_send with the send mr address, size and lkey
 
 		// create a work request, with the RDMA Send operation
 		memset(&wr_send, 0, sizeof(wr_send));
@@ -369,35 +369,35 @@ int main(int argc, char *argv[])
 		wr_send.opcode     = IBV_WR_SEND;
 		wr_send.send_flags = IBV_SEND_SIGNALED;
 
-		// TODO 6.3: post the work request, using ibv_post_send
+		// TODO 7.3: post the work request, using ibv_post_send
 	}
 
 free_write_mr:
-	// TODO 6.1: free write_mr, using ibv_dereg_mr
+	// TODO 7.1: free write_mr, using ibv_dereg_mr
 
 free_send_mr:
-	// TODO 6.1: free send_mr, using ibv_dereg_mr
+	// TODO 7.1: free send_mr, using ibv_dereg_mr
 
 free_write_qp:
-	// TODO 6.1: free write_qp, using ibv_destroy_qp
+	// TODO 7.1: free write_qp, using ibv_destroy_qp
 
 free_send_qp:
-	// TODO 6.1: free send_qp, using ibv_destroy_qp
+	// TODO 7.1: free send_qp, using ibv_destroy_qp
 
 free_write_cq:
-	// TODO 6.1: free write_cq, using ibv_destroy_cq
+	// TODO 7.1: free write_cq, using ibv_destroy_cq
 
 free_send_cq:
-	// TODO 6.1: free send_cq, using ibv_destroy_cq
+	// TODO 7.1: free send_cq, using ibv_destroy_cq
 
 free_pd:
-	// TODO 6.1: free pd, using ibv_dealloc_pd
+	// TODO 7.1: free pd, using ibv_dealloc_pd
 
 free_context:
-	// TODO 6.1: close the RDMA device, using ibv_close_device
+	// TODO 7.1: close the RDMA device, using ibv_close_device
 
 free_devlist:
-	// TODO 6.1: free dev_list, using ibv_free_device_list
+	// TODO 7.1: free dev_list, using ibv_free_device_list
 
 	return 0;
 }
