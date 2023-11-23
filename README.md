@@ -203,7 +203,7 @@ Use the following command to create a SoftRoCE (RXE) interface, replacing <netde
 sudo rdma link add <netdev>rxe type rxe netdev <netdev>
 ```
 
-### 2: Inspect The Interface
+### 3: Inspect The Interface
 
 There are a few commands to inspect a RDMA interface.
 First, you can use `rdma link show` and `ibv_devices` to see if your interface is there.
@@ -225,11 +225,11 @@ For RoCEv2, the GID entry will be either the IPv6 address, or `::ffff:<IPv4 addr
 Remember the index of the GID entry for the IPv4 address;
 you will need it later.
 
-### 3: Do Some RDMA
+### 4: Do Some RDMA
 
 Now, let's generate some RDMA traffic, using some standard tools: `ib_write_bw` and `ibv_rc_pingpong`
 
-#### 3.1: `ibv_rc_pingpong`
+#### 4.1: `ibv_rc_pingpong`
 
 `ibv_rc_pingpong` will do a simple ping back and forth, to test the connectivity.
 
@@ -245,7 +245,7 @@ On the second system, run:
 ibv_rc_pingpong -d <rxe_interface> -g <gid_index> <ip_of_first_system>
 ```
 
-#### 3.2: `ib_write_bw`
+#### 4.2: `ib_write_bw`
 
 `ib_write_bw` will measure the bandwidth of a RDMA connection, for write operations.
 
@@ -262,14 +262,14 @@ ib_write_bw -d <rxe_interface> -x <gid_index> <ip_of_first_system>
 There also other tools, like `ib_write_lat`, `ib_read_bw`, `ib_read_lat`, `ib_send_bw`, `ib_send_lat`.
 The `_lat` tools measure the latency of one operation.
 
-### 4: Dump Some RDMA Traffic
+### 5: Dump Some RDMA Traffic
 
 Normally, intercepting RDMA traffic is a pain.
 But, because we use SoftRoCE, all the packets go through the Linux kernel, and `tcpdump` can see them.
 Use `tcpdump` to dump the traffic, while you use one of the tools from above.
 Use `Wireshark` to inspect the capture.
 
-### 5: RDMA Interface Statistics
+### 6: RDMA Interface Statistics
 
 Sometimes stuff doesn't work, and no one knows why.
 That's why there are hardware counters available, to shed some light.
@@ -277,14 +277,14 @@ Usually, you can find them in `/sys/class/infiniband<rdma_dev>/ports/1/hw_counte
 Some drivers also provide additional drivers in `/sys/class/infiniband<rdma_dev>/ports/1/counters/`, but that's not our case.
 List those counters and try to find what they mean.
 
-### 6: Write A RDMA Application
+### 7: Write A RDMA Application
 
 Ok, enough using other people's applications.
 Time to get your hands dirty, and write an application that does RDMA.
 To do that, you must use the `ibverbs` library.
 The VMs already have it installed.
 
-#### 6.1: Setup the Connection
+#### 7.1: Setup the Connection
 
 In order for any 2 applications to speak RDMA to eachother, a few things must happen:
  * each application must open a RDMA device
@@ -299,13 +299,13 @@ And google (especially rdmamojo) is your friend for this one.
 Oh, and one more thing:
 the RDMA drivers really hate it when you don't free the resources you use
 
-#### 6.2: Do a Send
+#### 7.2: Do a Send
 
 Now that all the structures are set up, you can do a RDMA Send.
 As before, follow the comments.
 If you feel adventurous, do a Send With Immediate.
 
-#### 6.3: Do a Write
+#### 7.3: Do a Write
 
 Now do a RDMA Write.
 You know the drill.
