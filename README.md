@@ -187,7 +187,7 @@ Unless it is is notified another way, the receiver won't be notified if a `Read`
 ### 1: Lab Setup
 
 In this lab you will use 2 virtual machines, that will communicate with eachother.
-A virtual mahine with all the needed packages is provided here (TODO).
+A virtual mahine with all the needed packages is provided here [](https://github.com/cristian-vijelie/dcn-rdma-lab/releases/download/v1/dcn-rdma-v1.torrent).
 Make sure that the virtual machines can ping eachother.
 
 For the lab to work, the virtual machines must be on a Bridged Network.
