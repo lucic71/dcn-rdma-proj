@@ -273,7 +273,7 @@ Use `Wireshark` to inspect the capture.
 
 Sometimes stuff doesn't work, and no one knows why.
 That's why there are hardware counters available, to shed some light.
-Usually, you can find them in `/sys/class/infiniband<rdma_dev>/ports/1/hw_counters/`.
+Usually, you can find them in `/sys/class/infiniband/<rdma_dev>/ports/1/hw_counters/`.
 Some drivers also provide additional drivers in `/sys/class/infiniband<rdma_dev>/ports/1/counters/`, but that's not our case.
 List those counters and try to find what they mean.
 
