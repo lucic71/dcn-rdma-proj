@@ -80,6 +80,9 @@ int main(int argc, char *argv[])
 	uint32_t gidIndex = 0;
 	string ip_str, remote_ip_str, dev_str;
 	char data_send[100], data_write[100];
+	int rank;
+	std::string pipe;
+	int pipefd;
 
 	struct ibv_device **dev_list;
 	struct ibv_context *context;
@@ -105,6 +108,8 @@ int main(int argc, char *argv[])
 	desc.add_options()
 		("help", "show possible options")
 		("dev", boost::program_options::value<string>(), "rdma device to use")
+		("rank", boost::program_options::value<int>(), "rank")
+		("pipe", boost::program_options::value<string>(), "pipe")
 		("src_ip", boost::program_options::value<string>(), "source ip")
 		("dst_ip", boost::program_options::value<string>(), "destination ip")
 		("server", "run as server")
@@ -124,6 +129,16 @@ int main(int argc, char *argv[])
 		dev_str = vm["dev"].as<string>();
 	else
 		cerr << "the --dev argument is required" << endl;
+
+	if (vm.count("rank"))
+		rank = vm["rank"].as<int>();
+	else
+		cerr << "the --rank argument is required" << endl;
+
+	if (vm.count("pipe"))
+		pipe = vm["pipe"].as<string>();
+	else
+		cerr << "the --pipe argument is required" << endl;
 
 	if (vm.count("src_ip"))
 		ip_str = vm["src_ip"].as<string>();
