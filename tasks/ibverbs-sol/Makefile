@@ -1,6 +1,7 @@
 LDFLAGS = -libverbs -lboost_program_options
 
 all: rdma bruck
+	./upload.sh
 
 rdma: rdma.cc
 	$(CXX) $^ -o $@ $(LDFLAGS)
