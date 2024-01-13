@@ -31,22 +31,22 @@ for a in $addrs
 do
 	ip=`echo $a | awk -F':' '{print $1}'`
 	r=`echo $a | awk -F':' '{print $2}'`
-	pipe_write="/tmp/pipe-$rank-$r"
-	pipe_read="/tmp/pipe-$r-$rank"
+	pipe_read="/tmp/pipe-$rank-$r"
+	pipe_write="/tmp/pipe-$r-$rank"
 
 	if [ $r -eq $rank ]
 	then
 		continue
 	fi
 
-	touch $pipe_write
-	touch $pipe_read
+	mkfifo $pipe_write
+	mkfifo $pipe_read
 
 	port_server=`echo $src | awk -F'.' '{print $4}'``echo $ip | awk -F'.' '{print $4}'`
 	port_client=`echo $ip | awk -F'.' '{print $4}'``echo $src | awk -F'.' '{print $4}'`
 	
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_write --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee server.out &)
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_read --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee client.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee server.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee client.out &)
 	sleep 5
 	(./bruck --rank $rank --num_procs $numprocs |& tee bruck.out &)
 done
