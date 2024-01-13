@@ -6,6 +6,7 @@
 
 #include <cerrno>
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include <boost/program_options.hpp>
@@ -511,12 +512,8 @@ int main(int argc, char *argv[])
 			ret = readall(pipefd, data_write, datasize);
 			if (ret != datasize)
 			{
-				if (ret == 0)
-					continue;
-				else {
-					cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
-					goto free_write_mr;
-				}
+				cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
+				goto free_write_mr;
 			}
 			cout << "readall success\n";
 
@@ -579,6 +576,10 @@ int main(int argc, char *argv[])
 			ret = 0;
 			do
 			{
+				std::ifstream donefile("/tmp/done"); bool done;
+				donefile >> done;
+				if (done) goto free_write_mr;	
+
 				ret = ibv_poll_cq(write_cq, 1, &wc);
 			} while (ret == 0);
 
@@ -603,6 +604,12 @@ int main(int argc, char *argv[])
 	}
 
 free_write_mr:
+	if (server) {
+		std::ofstream done("/tmp/done");
+		done << 1;
+		done.close();
+	}
+
 	// free write_mr, using ibv_dereg_mr
 	ibv_dereg_mr(write_mr);
 
