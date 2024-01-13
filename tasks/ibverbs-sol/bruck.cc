@@ -94,11 +94,11 @@ int alltoall_bruck(const void* sendbuf,
     int write_proc, read_proc, size;
     int num_steps = log2(num_procs);
     int msg_size = entries_per_cell*bytes_per_entry;
-    int total_count = entries_per_cell*num_procs;
+    int total_cells = entries_per_cell*num_procs;
 
     // TODO : could have only half this size
-    char* contig_buf = (char*)malloc(total_count*bytes_per_entry);
-    char* tmpbuf = (char*)malloc(total_count*bytes_per_entry);
+    char* contig_buf = (char*)malloc(total_cells*bytes_per_entry);
+    char* tmpbuf = (char*)malloc(total_cells*bytes_per_entry);
 
     // 1. rotate local data
     if (rank) {
@@ -127,7 +127,7 @@ int alltoall_bruck(const void* sendbuf,
         group_size = stride * entries_per_cell;
         
         ctr = 0;
-        for (int i = group_size; i < total_count; i += (group_size*2))
+        for (int i = group_size; i < total_cells; i += (group_size*2))
         {
             for (int j = 0; j < group_size; j++)
             {
@@ -140,14 +140,15 @@ int alltoall_bruck(const void* sendbuf,
             }
         }
 
-        size = ((int)(total_count / group_size) * group_size) / 2;
-	size *= entries_per_cell*bytes_per_entry;
+        size = ((int)(total_cells / group_size) * group_size) / 2;
+	size *= bytes_per_entry;
 
         std::cout << "contig_buf: ";
         for (int i = 0; i < size; i++)
             std::cout << (int) contig_buf[i] << " ";
         std::cout << std::endl;
 
+	std::cout << "[bruck] going to write bytes " << size << std::endl;
         ret = rwrite(write_proc, contig_buf, size);
 	if (ret != size) 
 	{
@@ -175,7 +176,7 @@ int alltoall_bruck(const void* sendbuf,
         std::cout << std::endl;
 
         ctr = 0;
-        for (int i = group_size; i < total_count; i += (group_size*2))
+        for (int i = group_size; i < total_cells; i += (group_size*2))
         {
             for (int j = 0; j < group_size; j++)
             {
