@@ -5,12 +5,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 #include <boost/program_options.hpp>
 
 using namespace std; 
 
 int myrank;
+std::map<std::string, int> pipes;
 
 void rotate(void* recvbuf,
         int new_first_byte,
@@ -54,47 +56,14 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 
 ssize_t rread(int rank, void *buff, size_t nbyte) {
 	std::string pipe = "/tmp/pipe-" + std::to_string(rank) + "-" + std::to_string(myrank);
-	int pipefd = open(pipe.c_str(), O_RDONLY);
-	int ret;
-
-	if (pipefd == -1)
-	{
-		cout << "[bruck] rread open failed on " << pipe << ": " << strerror(errno) << endl;
-		return -1;
-	}
-
-	std::cout << "[bruck] before readall\n";
-	ret = readall(pipefd, buff, nbyte);	
-
-	if (close(pipefd) == -1)
-	{
-		cout << "close failed: " << strerror(errno) << endl;
-		return -1;
-	}
-
-	return ret;
+	int pipefd = pipes[pipe];
+	return readall(pipefd, buff, nbyte);	
 }
 
 ssize_t rwrite(int rank, void *buff, size_t nbyte) {
 	std::string pipe = "/tmp/pipe-" + std::to_string(myrank) + "-" + std::to_string(rank);
-	int pipefd = open(pipe.c_str(), O_WRONLY);
-	int ret;
-
-	if (pipefd == -1)
-	{
-		cout << "[bruck] rwrite  open failed on " << pipe << ": " << strerror(errno) << endl;
-		return -1;
-	}
-
-	ret = writeall(pipefd, buff, nbyte);	
-
-	if (close(pipefd) == -1)
-	{
-		cout << "close failed: " << strerror(errno) << endl;
-		return -1;
-	}
-
-	return ret;
+	int pipefd = pipes[pipe];
+	return writeall(pipefd, buff, nbyte);	
 }
 
 int alltoall_bruck(const void* sendbuf,
@@ -195,6 +164,11 @@ int alltoall_bruck(const void* sendbuf,
 	}
         std::cout << "rread ok" << std::endl;
 
+        std::cout << "tmpbuf: ";
+        for (int i = 0; i < size; i++)
+       	    std::cout << (int) tmpbuf[i] << ", ";
+        std::cout << std::endl;
+
         std::cout << "recv_buffer before processing: ";
         for (int i = 0; i < size; i++)
        	    std::cout << (int) recv_buffer[i] << ", ";
@@ -238,9 +212,53 @@ int alltoall_bruck(const void* sendbuf,
     return 0;
 }
 
+std::map<std::string, int> open_pipes(int num_procs)
+{
+	std::map<std::string, int> map;
+	std::string pipe_wr, pipe_rd;
+	int fd;
+	for (int i = 0; i < num_procs; i++) {
+		if (i == myrank) 
+			continue;
+
+		pipe_rd = "/tmp/pipe-" + std::to_string(i) + "-" + std::to_string(myrank);
+		pipe_wr = "/tmp/pipe-" + std::to_string(myrank) + "-" + std::to_string(i);
+
+		fd = open(pipe_wr.c_str(), O_WRONLY);
+		if (fd == -1)
+		{
+			cout << "[bruck] open error on pipe_wr " << pipe_wr << ": " << strerror(errno) << endl;
+			exit(-1);
+		}
+		map[pipe_wr] = fd;
+
+		fd = open(pipe_rd.c_str(), O_RDONLY);
+		if (fd == -1)
+		{
+			cout << "[bruck] open error on pipe_rd " << pipe_rd << ": " << strerror(errno) << endl;
+			exit(-1);
+		}
+		map[pipe_rd] = fd;
+	}
+	return map;
+}
+
+bool close_pipes(std::map<std::string, int> map)
+{
+	sleep(10);
+	for (auto const& e : map) {
+		if (close(e.second) == -1)
+		{
+			cout << "[bruck] close error on pipe " << e.first << ": " << strerror(errno) << endl;
+			false;
+		}
+	}
+	return true;
+}
+
 int main(int argc, char *argv[])
 {
-	int num_procs;
+	int num_procs, entries_per_cell = 3;
 	int *rbuf, *sbuf;
 
 	boost::program_options::options_description desc("Allowed options");
@@ -270,34 +288,38 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	rbuf = (int *) malloc(sizeof(int) * num_procs);
+	pipes = open_pipes(num_procs);
+
+	rbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!rbuf)
 	{
 		cout << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 
-	sbuf = (int *) malloc(sizeof(int) * num_procs);
+	sbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!sbuf)
 	{
 		cout << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 
-	for (int i = 0; i < num_procs; i++)
+	for (int i = 0; i < entries_per_cell * num_procs; i++)
 		sbuf[i] = myrank;
 
 	std::cout << "Initial data: ";
-	for (int i = 0; i < num_procs; i++)
+	for (int i = 0; i < entries_per_cell * num_procs; i++)
 		std::cout << sbuf[i] << " ";
 	std::cout << std::endl;
 
-	alltoall_bruck(sbuf, 1, rbuf, myrank, num_procs, sizeof(int));
+	alltoall_bruck(sbuf, entries_per_cell, rbuf, myrank, num_procs, sizeof(int));
 
 	std::cout << "Final data: ";
-	for (int i = 0; i < num_procs; i++)
+	for (int i = 0; i < entries_per_cell * num_procs; i++)
 		std::cout << rbuf[i] << " ";
 	std::cout << std::endl;
+
+	close_pipes(pipes);
 
 	return 0;
 }

@@ -26,6 +26,8 @@ then
 	echo "rank must be in interval [0, $numprocs]"
 	exit -1
 fi
+
+entries_per_cell=3
  
 for a in $addrs
 do
@@ -45,8 +47,8 @@ do
 	port_server=`echo $src | awk -F'.' '{print $4}'``echo $ip | awk -F'.' '{print $4}'`
 	port_client=`echo $ip | awk -F'.' '{print $4}'``echo $src | awk -F'.' '{print $4}'`
 	
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee server.out &)
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize `cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'` |& tee client.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee server.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee client.out &)
 	sleep 5
 	(./bruck --rank $rank --num_procs $numprocs |& tee bruck.out &)
 done
