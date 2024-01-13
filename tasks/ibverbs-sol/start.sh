@@ -29,11 +29,6 @@ fi
  
 for a in $addrs
 do
-	touch "/tmp/pipe-$src-$a"
-done
-
-for a in $addrs
-do
 	ip=`echo $a | awk -F':' '{print $1}'`
 	r=`echo $a | awk -F':' '{print $2}'`
 	pipe_write="/tmp/pipe-$rank-$r"
