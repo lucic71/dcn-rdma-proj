@@ -258,7 +258,7 @@ bool close_pipes(std::map<std::string, int> map)
 
 int main(int argc, char *argv[])
 {
-	int num_procs, entries_per_cell = 3;
+	int num_procs, entries_per_cell;
 	int *rbuf, *sbuf;
 
 	boost::program_options::options_description desc("Allowed options");
@@ -266,6 +266,7 @@ int main(int argc, char *argv[])
 		("help", "show possible options")
 		("rank", boost::program_options::value<int>(), "rank")
 		("num_procs", boost::program_options::value<int>(), "num_procs")
+		("entries_per_cell", boost::program_options::value<int>(), "entries_per_cell")
 	;
 
 	boost::program_options::variables_map vm;
@@ -285,6 +286,14 @@ int main(int argc, char *argv[])
 	else
 	{
 		cout << "the --num_procs argument is required" << endl;
+		return -1;
+	}
+
+	if (vm.count("entries_per_cell"))
+		entries_per_cell = vm["entries_per_cell"].as<int>();
+	else
+	{
+		cout << "the --entries_per_cell argument is required" << endl;
 		return -1;
 	}
 

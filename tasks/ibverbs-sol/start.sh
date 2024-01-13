@@ -27,7 +27,7 @@ then
 	exit -1
 fi
 
-entries_per_cell=3
+entries_per_cell=10
  
 for a in $addrs
 do
@@ -50,5 +50,5 @@ do
 	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee server.out &)
 	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee client.out &)
 	sleep 5
-	(./bruck --rank $rank --num_procs $numprocs |& tee bruck.out &)
+	(./bruck --rank $rank --num_procs $numprocs --entries_per_cell $entries_per_cell |& tee bruck.out &)
 done
