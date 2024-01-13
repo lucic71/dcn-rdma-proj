@@ -51,6 +51,39 @@ int receive_data(struct device_info &data)
 	return 0;
 }
 
+ssize_t readall(int fd, void *buff, size_t nbyte) {
+	size_t nread = 0; size_t res = 0;
+	char *cbuff = (char *) buff;
+	while (nread < nbyte) {
+		res = read(fd, cbuff+nread, nbyte-nread);
+		if (res == 0) break;
+		if (res == -1)
+		{
+			cerr << "error read\n";
+			return -1;
+		}
+		nread += res;
+	}
+	return nread;
+}
+
+ssize_t writeall(int fd, void *buff, size_t nbyte) {
+	size_t nwrote = 0; size_t res = 0;
+	char *cbuff = (char *) buff;
+	while (nwrote < nbyte) {
+		res = write(fd, cbuff+nwrote, nbyte-nwrote);
+		if (res == 0) break;
+		if (res == -1)
+		{
+			cerr << "error write\n";
+			return -1;
+		}
+		nwrote += res;
+	}
+	return nwrote;
+}
+
+
 int send_data(const struct device_info &data, string ip)
 {
 	int sockfd; 
@@ -154,6 +187,8 @@ int main(int argc, char *argv[])
 	if (vm.count("server"))
 		server = true;
 
+	std::cout << "parsing args ok\n";
+
 	// populate dev_list using ibv_get_device_list - use num_devices as argument
 	dev_list = ibv_get_device_list(&num_devices);
 	if (!dev_list)
@@ -180,6 +215,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+	std::cout << "got ibv dev ok\n";
 
 	// allocate a PD (protection domain), using ibv_alloc_pd
 	pd = ibv_alloc_pd(context);
@@ -204,6 +240,7 @@ int main(int argc, char *argv[])
 		cerr << "ibv_create_cq - recv - failed: " << strerror(errno) << endl;
 		goto free_send_cq;
 	}
+	std::cout << "allocated pd cq ok\n";
 
 	memset(&qp_init_attr, 0, sizeof(qp_init_attr));
 
@@ -262,6 +299,7 @@ int main(int argc, char *argv[])
 		cerr << "ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
 		goto free_write_qp;
 	}
+	std::cout << "initialized rdma internal structs ok\n";
 
 	// use ibv_query_port to get information about port number 1
 	ibv_query_port(context, 1, &port_attr);
@@ -299,6 +337,7 @@ int main(int argc, char *argv[])
 		cerr << "Given IP not found in GID table" << endl;
 		goto free_write_qp;
 	}
+	std::cout << "initialized git index ok\n";
 
 	// register the "data_send" and "data_write" buffers for RDMA operations, using ibv_reg_mr;
 	// store the resulting mrs in send_mr and write_mr
@@ -319,6 +358,7 @@ int main(int argc, char *argv[])
 	memcpy(&local.write_mr, write_mr, sizeof(local.write_mr));
 	local.send_qp_num = send_qp->qp_num;
 	local.write_qp_num = write_qp->qp_num;
+	std::cout << "registered buffers ok\n";
 
 	// exchange data between the 2 applications
 	if(server)
@@ -353,6 +393,7 @@ int main(int argc, char *argv[])
 			goto free_write_mr;
 		}
 	}
+	std::cout << "send/recv handshake ok\n";
 
 	memset(&qp_attr, 0, sizeof(qp_attr));
 
@@ -441,133 +482,108 @@ int main(int argc, char *argv[])
 
 	if (server)
 	{
-		memcpy(data_write, "Hello, but with write", 21);
+		while (1) {
+			int ret;
 
-		// initialise sg_write with the write mr address, size and lkey
-		memset(&sg_write, 0, sizeof(sg_write));
-		sg_write.addr   = (uintptr_t)write_mr->addr;
-		sg_write.length = sizeof(data_write);
-		sg_write.lkey   = write_mr->lkey;
-		
-		// create a work request, with the Write With Immediate operation
-		memset(&wr_write, 0, sizeof(wr_write));
-		wr_write.wr_id      = 0;
-		wr_write.sg_list    = &sg_write;
-		wr_write.num_sge    = 1;
-		wr_write.opcode     = IBV_WR_RDMA_WRITE_WITH_IMM;
-		wr_write.send_flags = IBV_SEND_SIGNALED;
+			memset(data_write, 0, 100);
 
-		wr_write.imm_data            = htonl(0x1234);
+			ret = readall(pipefd, data_write, 1);
+			if (ret == -1) 
+			{
+				cerr << "readall failed: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
+			if (ret != 1)
+			{
+				cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
+			cout << "readall success\n";
 
-		// fill the wr.rdma field of wr_write with the remote address and key
-		wr_write.wr.rdma.remote_addr = (uintptr_t)remote.write_mr.addr;
-		wr_write.wr.rdma.rkey        = remote.write_mr.rkey;
+			// initialise sg_write with the write mr address, size and lkey
+			memset(&sg_write, 0, sizeof(sg_write));
+			sg_write.addr   = (uintptr_t)write_mr->addr;
+			sg_write.length = sizeof(data_write);
+			sg_write.lkey   = write_mr->lkey;
+			
+			// create a work request, with the Write With Immediate operation
+			memset(&wr_write, 0, sizeof(wr_write));
+			wr_write.wr_id      = 0;
+			wr_write.sg_list    = &sg_write;
+			wr_write.num_sge    = 1;
+			wr_write.opcode     = IBV_WR_RDMA_WRITE_WITH_IMM;
+			wr_write.send_flags = IBV_SEND_SIGNALED;
 
-		// post the work request, using ibv_post_send
-		ret = ibv_post_send(write_qp, &wr_write, &bad_wr_write);
-		if (ret != 0)
-		{
-			cerr << "ibv_post_send failed: " << strerror(ret) << endl;
-			goto free_write_mr;
+			wr_write.imm_data            = htonl(0x1234);
+
+			// fill the wr.rdma field of wr_write with the remote address and key
+			wr_write.wr.rdma.remote_addr = (uintptr_t)remote.write_mr.addr;
+			wr_write.wr.rdma.rkey        = remote.write_mr.rkey;
+
+			// post the work request, using ibv_post_send
+			ret = ibv_post_send(write_qp, &wr_write, &bad_wr_write);
+			if (ret != 0)
+			{
+				cerr << "ibv_post_send failed: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
+			cout << "[server] sent data to client\n";
+			usleep(50000);
 		}
-
-		// initialise sg_send with the send mr address, size and lkey
-		memset(&sg_recv, 0, sizeof(sg_recv));
-		sg_recv.addr   = (uintptr_t)send_mr->addr;
-		sg_recv.length = sizeof(data_send);
-		sg_recv.lkey   = send_mr->lkey;
-
-		// create a receive work request
-		memset(&wr_recv, 0, sizeof(wr_recv));
-		wr_recv.wr_id      = 0;
-		wr_recv.sg_list    = &sg_recv;
-		wr_recv.num_sge    = 1;
-
-		// post the receive work request, using ibv_post_recv, for the send QP
-		ret = ibv_post_recv(send_qp, &wr_recv, &bad_wr_recv);
-		if (ret != 0)
-		{
-			cerr << "ibv_post_recv failed: " << strerror(ret) << endl;
-			goto free_write_mr;
-		}
-
-		// poll send_cq, using ibv_poll_cq, until it returns different than 0
-		ret = 0;
-		do
-		{
-			ret = ibv_poll_cq(send_cq, 1, &wc);
-		} while (ret == 0);
-
-		// check the wc (work completion) structure status;
-		// return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
-		if (wc.status != ibv_wc_status::IBV_WC_SUCCESS)
-		{
-			cerr << "ibv_poll_cq failed: " << ibv_wc_status_str(wc.status) << endl;
-			goto free_write_mr;
-		}
-
-		cout << data_send << endl;
 	}
 	else
 	{
-		memcpy(data_send, "Hello", 5);
+		while (1) {
+			int ret;
 
-		// initialise sg_write with the write mr address, size and lkey
-		memset(&sg_recv, 0, sizeof(sg_recv));
-		sg_recv.addr   = (uintptr_t)write_mr->addr;
-		sg_recv.length = sizeof(data_write);
-		sg_recv.lkey   = write_mr->lkey;
+			// initialise sg_write with the write mr address, size and lkey
+			memset(&sg_recv, 0, sizeof(sg_recv));
+			sg_recv.addr   = (uintptr_t)write_mr->addr;
+			sg_recv.length = sizeof(data_write);
+			sg_recv.lkey   = write_mr->lkey;
 
-		memset(&wr_recv, 0, sizeof(wr_recv));
-		wr_recv.wr_id      = 0;
-		wr_recv.sg_list    = &sg_recv;
-		wr_recv.num_sge    = 1;
+			memset(&wr_recv, 0, sizeof(wr_recv));
+			wr_recv.wr_id      = 0;
+			wr_recv.sg_list    = &sg_recv;
+			wr_recv.num_sge    = 1;
 
-		// post a receive work request, using ibv_post_recv, for the write QP
-		ret = ibv_post_recv(write_qp, &wr_recv, &bad_wr_recv);
-		if (ret != 0)
-		{
-			cerr << "ibv_post_recv failed: " << strerror(ret) << endl;
-			goto free_write_mr;
-		}
+			// post a receive work request, using ibv_post_recv, for the write QP
+			ret = ibv_post_recv(write_qp, &wr_recv, &bad_wr_recv);
+			if (ret != 0)
+			{
+				cerr << "ibv_post_recv failed: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
 
-		// poll write_cq, using ibv_poll_cq, until it returns different than 0
-		ret = 0;
-		do
-		{
-			ret = ibv_poll_cq(write_cq, 1, &wc);
-		} while (ret == 0);
+			// poll write_cq, using ibv_poll_cq, until it returns different than 0
+			ret = 0;
+			do
+			{
+				ret = ibv_poll_cq(write_cq, 1, &wc);
+			} while (ret == 0);
 
-		// check the wc (work completion) structure status;
-		//         return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
-		if (wc.status != ibv_wc_status::IBV_WC_SUCCESS)
-		{
-			cerr << "ibv_poll_cq failed: " << ibv_wc_status_str(wc.status) << endl;
-			goto free_write_mr;
-		}
+			// check the wc (work completion) structure status;
+			//         return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
+			if (wc.status != ibv_wc_status::IBV_WC_SUCCESS)
+			{
+				cerr << "ibv_poll_cq failed: " << ibv_wc_status_str(wc.status) << endl;
+				goto free_write_mr;
+			}
 
-		cout << data_write << endl;
+			cout << "[client] " << data_write << endl;
 
-		// initialise sg_send with the send mr address, size and lkey
-		memset(&sg_send, 0, sizeof(sg_send));
-		sg_send.addr   = (uintptr_t)send_mr->addr;
-		sg_send.length = sizeof(data_send);
-		sg_send.lkey   = send_mr->lkey;
-
-		// create a work request, with the RDMA Send operation
-		memset(&wr_send, 0, sizeof(wr_send));
-		wr_send.wr_id      = 0;
-		wr_send.sg_list    = &sg_send;
-		wr_send.num_sge    = 1;
-		wr_send.opcode     = IBV_WR_SEND;
-		wr_send.send_flags = IBV_SEND_SIGNALED;
-
-		// post the work request, using ibv_post_send
-		ret = ibv_post_send(send_qp, &wr_send, &bad_wr_send);
-		if (ret != 0)
-		{
-			cerr << "ibv_post_recv failed: " << strerror(ret) << endl;
-			goto free_write_mr;
+			ret = writeall(pipefd, data_write, 1);
+			if (ret == -1) 
+			{
+				cerr << "writeall failed: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
+			if (ret != 1)
+			{
+				cerr << "writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
+				goto free_write_mr;
+			}
+			cout << "writeall success\n";
 		}
 	}
 
