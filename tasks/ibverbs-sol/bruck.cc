@@ -53,8 +53,8 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 }
 
 ssize_t rread(int rank, void *buff, size_t nbyte) {
-	std::string pipe = "/tmp/pipe-" + std::to_string(myrank) + "-" + std::to_string(rank);
-	int pipefd = open(pipe.c_str(), O_RDWR);
+	std::string pipe = "/tmp/pipe-" + std::to_string(rank) + "-" + std::to_string(myrank);
+	int pipefd = open(pipe.c_str(), O_RDONLY);
 	int ret;
 
 	if (pipefd == -1)
@@ -75,8 +75,8 @@ ssize_t rread(int rank, void *buff, size_t nbyte) {
 }
 
 ssize_t rwrite(int rank, void *buff, size_t nbyte) {
-	std::string pipe = "/tmp/pipe-" + std::to_string(rank) + "-" + std::to_string(myrank);
-	int pipefd = open(pipe.c_str(), O_RDWR);
+	std::string pipe = "/tmp/pipe-" + std::to_string(myrank) + "-" + std::to_string(rank);
+	int pipefd = open(pipe.c_str(), O_WRONLY);
 	int ret;
 
 	if (pipefd == -1)

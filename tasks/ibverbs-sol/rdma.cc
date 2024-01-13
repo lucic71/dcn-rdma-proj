@@ -488,9 +488,9 @@ int main(int argc, char *argv[])
 	std::cout << "modified qps ok\n";
 
 	if (server)
-		pipefd = open(pipe.c_str(), O_RDWR);
+		pipefd = open(pipe.c_str(), O_RDONLY);
 	else
-		pipefd = open(pipe.c_str(), O_RDWR);
+		pipefd = open(pipe.c_str(), O_WRONLY);
 
 	if (pipefd == -1) {
 		cerr << "open failed: " << strerror(errno) << endl;
