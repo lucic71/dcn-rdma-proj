@@ -19,7 +19,8 @@ struct device_info
 	struct ibv_mr write_mr;
 };
 
-int port = 9210;
+//int port = 9210;
+int port;
 
 int receive_data(struct device_info &data)
 {
@@ -62,7 +63,7 @@ ssize_t readall(int fd, void *buff, size_t nbyte) {
 		if (res == -1)
 		{
 			cerr << "error read\n";
-			return -1;
+			exit(-1);
 		}
 		nread += res;
 	}
@@ -78,7 +79,7 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 		if (res == -1)
 		{
 			cerr << "error write\n";
-			return -1;
+			exit(-1);
 		}
 		nwrote += res;
 	}
@@ -123,9 +124,9 @@ int main(int argc, char *argv[])
 	uint32_t gidIndex = 0;
 	string ip_str, remote_ip_str, dev_str;
 	char data_send[100], data_write[100];
-	int rank;
 	std::string pipe;
 	int pipefd;
+	int datasize;
 
 	struct ibv_device **dev_list;
 	struct ibv_context *context;
@@ -151,8 +152,9 @@ int main(int argc, char *argv[])
 	desc.add_options()
 		("help", "show possible options")
 		("dev", boost::program_options::value<string>(), "rdma device to use")
-		("rank", boost::program_options::value<int>(), "rank")
 		("pipe", boost::program_options::value<string>(), "pipe")
+		("datasize", boost::program_options::value<int>(), "datasize")
+		("port", boost::program_options::value<int>(), "port")
 		("src_ip", boost::program_options::value<string>(), "source ip")
 		("dst_ip", boost::program_options::value<string>(), "destination ip")
 		("server", "run as server")
@@ -173,10 +175,15 @@ int main(int argc, char *argv[])
 	else
 		cerr << "the --dev argument is required" << endl;
 
-	if (vm.count("rank"))
-		rank = vm["rank"].as<int>();
+	if (vm.count("datasize"))
+		datasize = vm["datasize"].as<int>();
 	else
-		cerr << "the --rank argument is required" << endl;
+		cerr << "the --datasize argument is required" << endl;
+
+	if (vm.count("port"))
+		port = vm["port"].as<int>();
+	else
+		cerr << "the --port argument is required" << endl;
 
 	if (vm.count("pipe"))
 		pipe = vm["pipe"].as<string>();
@@ -388,18 +395,23 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		ret = send_data(local, remote_ip_str);
-		if (ret != 0)
-		{
-			cerr << "send_data failed: " << endl;
-			goto free_write_mr;
-		}
+		while (1) {
+			ret = send_data(local, remote_ip_str);
+			if (ret != 0)
+			{
+				int secs = 5;
+				cerr << "send_data failed, retrying in secs " << secs << endl;
+				sleep(secs);
+				continue;
+			}
 
-		ret = receive_data(remote);
-		if (ret != 0)
-		{
-			cerr << "receive_data failed: " << endl;
-			goto free_write_mr;
+			ret = receive_data(remote);
+			if (ret != 0)
+			{
+				cerr << "receive_data failed: " << endl;
+				goto free_write_mr;
+			}
+			break;
 		}
 	}
 	std::cout << "send/recv handshake ok\n";
@@ -496,16 +508,15 @@ int main(int argc, char *argv[])
 
 			memset(data_write, 0, 100);
 
-			ret = readall(pipefd, data_write, 1);
-			if (ret == -1) 
+			ret = readall(pipefd, data_write, datasize);
+			if (ret != datasize)
 			{
-				cerr << "readall failed: " << strerror(ret) << endl;
-				goto free_write_mr;
-			}
-			if (ret != 1)
-			{
-				cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
-				goto free_write_mr;
+				if (ret == 0)
+					continue;
+				else {
+					cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
+					goto free_write_mr;
+				}
 			}
 			cout << "readall success\n";
 
@@ -581,13 +592,8 @@ int main(int argc, char *argv[])
 
 			cout << "[client] " << data_write << endl;
 
-			ret = writeall(pipefd, data_write, 1);
-			if (ret == -1) 
-			{
-				cerr << "writeall failed: " << strerror(ret) << endl;
-				goto free_write_mr;
-			}
-			if (ret != 1)
+			ret = writeall(pipefd, data_write, datasize);
+			if (ret != datasize)
 			{
 				cerr << "writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
 				goto free_write_mr;

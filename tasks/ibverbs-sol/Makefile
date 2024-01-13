@@ -1,9 +1,12 @@
 LDFLAGS = -libverbs -lboost_program_options
 
-all: main
+all: rdma bruck
 
-main: main.cc
+rdma: rdma.cc
+	$(CXX) $^ -o $@ $(LDFLAGS)
+
+bruck: bruck.cc
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
 clean:
-	rm main
+	rm rdma
