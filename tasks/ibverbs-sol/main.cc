@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
@@ -422,6 +423,18 @@ int main(int argc, char *argv[])
 		cerr << "ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
+	std::cout << "modified qps ok\n";
+
+	if (server)
+		pipefd = open(pipe.c_str(), O_RDWR);
+	else
+		pipefd = open(pipe.c_str(), O_RDWR);
+
+	if (pipefd == -1) {
+		cerr << "open failed: " << strerror(errno) << endl;
+		return 1;
+	}
+	std::cout << "opened pipe ok\n";
 
 	memset(data_send, 0, sizeof(data_send));
 	memset(data_write, 0, sizeof(data_write));
