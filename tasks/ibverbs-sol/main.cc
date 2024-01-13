@@ -19,6 +19,8 @@ struct device_info
 	struct ibv_mr write_mr;
 };
 
+int port = 9210;
+
 int receive_data(struct device_info &data)
 {
 	int sockfd, connfd, len; 
@@ -32,7 +34,7 @@ int receive_data(struct device_info &data)
 
 	servaddr.sin_family = AF_INET; 
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
-	servaddr.sin_port = htons(8080); 
+	servaddr.sin_port = htons(port); 
 
 	if ((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
 		return 1;
@@ -87,20 +89,27 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 int send_data(const struct device_info &data, string ip)
 {
 	int sockfd; 
+	int ret;
 	struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0); 
 	if (sockfd == -1)
+	{
+		cerr << "error socket\n";
 		return 1;
+	}
 
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(ip.c_str());
-	servaddr.sin_port = htons(8080);
+	servaddr.sin_port = htons(port);
 
 	if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
+	{
+		cerr << "error connect: " << strerror(errno) << endl;
 		return 1;
+	}
 
-	write(sockfd, &data, sizeof(data));
+	writeall(sockfd, (void *) &data, sizeof(data));
 
 	close(sockfd);
 
