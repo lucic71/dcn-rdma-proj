@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
  
 while getopts ":r:a:n:s:l:" option; do
   case $option in
@@ -30,7 +30,7 @@ then
 	exit -1
 fi
 
-entries_per_cell=10
+entries_per_cell=1
  
 for a in $addrs
 do
