@@ -50,8 +50,8 @@ do
 	port_server=`echo $src | awk -F'.' '{print $4}'``echo $ip | awk -F'.' '{print $4}'`
 	port_client=`echo $ip | awk -F'.' '{print $4}'``echo $src | awk -F'.' '{print $4}'`
 	
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee server.out &)
-	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee client.out &)
-	sleep 5
-	(./$algo --rank $rank --num_procs $numprocs --entries_per_cell $entries_per_cell |& tee $algo.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee server-$port_server.out &)
+	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee client-$port_client.out &)
 done
+
+(./$algo --rank $rank --num_procs $numprocs --entries_per_cell $entries_per_cell |& tee $algo.out &)
