@@ -1,6 +1,6 @@
 LDFLAGS = -libverbs -lboost_program_options
 
-all: rdma bruck
+all: rdma bruck pairwise
 	./upload.sh
 
 rdma: rdma.cc
@@ -9,5 +9,8 @@ rdma: rdma.cc
 bruck: bruck.cc
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
+pairwise: pairwise.cc
+	$(CXX) $^ -o $@ $(LDFLAGS)
+
 clean:
-	rm rdma
+	rm rdma bruck pairwise

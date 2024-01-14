@@ -1,6 +1,6 @@
-#!/bin/bash -ex
+#!/bin/bash
  
-while getopts ":r:a:n:s:" option; do
+while getopts ":r:a:n:s:l:" option; do
   case $option in
     r)
       rank="$OPTARG"
@@ -14,8 +14,11 @@ while getopts ":r:a:n:s:" option; do
     s)
       src="$OPTARG"
       ;;
+    l)
+      algo="$OPTARG"
+      ;;
     *)
-      echo "Usage: $0 [-r rank] [-n num_procs] [-a addresses] [-s source addr]"
+      echo "Usage: $0 [-r rank] [-n num_procs] [-a "ip0:rank0 ip1:rank1 .."] [-s source addr] [-l bruck|pairwise]"
       exit 1
       ;;
   esac
@@ -50,5 +53,5 @@ do
 	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_server --server --pipe $pipe_read --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee server.out &)
 	(./rdma --dev enp0s3rxe --src_ip $src --dst_ip $ip --port $port_client --pipe $pipe_write --datasize $((`cpp -dD /dev/null | grep __SIZEOF_INT__ | awk -F' ' '{print $3}'`*$entries_per_cell)) |& tee client.out &)
 	sleep 5
-	(./bruck --rank $rank --num_procs $numprocs --entries_per_cell $entries_per_cell |& tee bruck.out &)
+	(./$algo --rank $rank --num_procs $numprocs --entries_per_cell $entries_per_cell |& tee $algo.out &)
 done
