@@ -21,12 +21,12 @@ ssize_t readall(int fd, void *buff, size_t nbyte) {
 		res = read(fd, cbuff+nread, nbyte-nread);
 		if (res == 0)
 		{
-			cout << "[pairwise] read returned 0" << std::endl;
+			cerr << "[pairwise] read returned 0" << std::endl;
 			break;
 		}
 		if (res == -1)
 		{
-			cout << "[pairwise] error read: " << strerror(errno) << std::endl;
+			cerr << "[pairwise] error read: " << strerror(errno) << std::endl;
 			return -1;
 		}
 		nread += res;
@@ -41,12 +41,12 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 		res = write(fd, cbuff+nwrote, nbyte-nwrote);
 		if (res == 0)
 		{
-			cout << "[pairwise] write returned 0" << std::endl;
+			cerr << "[pairwise] write returned 0" << std::endl;
 			break;
 		}
 		if (res == -1)
 		{
-			cout << "[pairwise] error write: " << strerror(errno) << std::endl;
+			cerr << "[pairwise] error write: " << strerror(errno) << std::endl;
 			return -1;
 		}
 		nwrote += res;
@@ -57,7 +57,6 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 ssize_t rread(int rank, void *buff, size_t nbyte) {
 	std::string pipe = "/tmp/pipe-" + std::to_string(rank) + "-" + std::to_string(myrank);
 	int pipefd = pipes[pipe];
-	std::cout << "[pairwise] will read from " << pipe << " at fd " << pipefd << "\n";
 	return readall(pipefd, buff, nbyte);	
 }
 
@@ -80,21 +79,10 @@ int alltoall_pairwise(const void* sendbuf,
     char* recv_buffer = (char*)recvbuf;
     char* send_buffer = (char*)sendbuf;
 
-	std::cout << "[pairwise] recv_buffer at beginning: ";
-	for (int i = 0; i < bytes_per_entry * entries_per_cell * num_procs; i++)
-		std::cout << (int) recv_buffer[i] << " ";
-	std::cout << std::endl;
-
-	std::cout << "[pairwise] send_buffer at beginning: ";
-	for (int i = 0; i < bytes_per_entry * entries_per_cell * num_procs; i++)
-		std::cout << (int) send_buffer[i] << " ";
-	std::cout << std::endl;
-
     // Send to rank + i
     // Recv from rank - i
     for (int i = 1; i < num_procs; i++)
     {
-	std::cout << "[pairwise] in loop, i: " << i << std::endl;
 	int size = entries_per_cell * bytes_per_entry;
 
         write_proc = rank + i;
@@ -107,26 +95,19 @@ int alltoall_pairwise(const void* sendbuf,
         send_pos = write_proc * size;
         recv_pos = read_proc * size;
 	
-	std::cout << "[pairwise] will write to rank " << write_proc << " at offset " << send_pos << " in send_buffer, with size " << size << "\n";
         ret = rwrite(write_proc, send_buffer + send_pos, size);
 	if (ret != size) 
 	{
-		cout << "rwrite only wrote " << ret << " bytes: " << strerror(ret) << endl;
+		cerr << "rwrite only wrote " << ret << " bytes: " << strerror(ret) << endl;
 		exit(-1);
 	}
 
-	std::cout << "[pairwise] will read from rank " << read_proc << " at offset " << recv_pos << " in recv_buffer, with size " << size << "\n";
         ret = rread(read_proc, recv_buffer + recv_pos, size);
 	if (ret != size)
 	{
-		cout << "rread only read " << ret << " bytes: " << strerror(ret) << endl;
+		cerr << "rread only read " << ret << " bytes: " << strerror(ret) << endl;
 		exit(-1);
 	}
-
-	std::cout << "[pairwise] recv_buffer at the end of the loop: ";
-	for (int i = 0; i < bytes_per_entry * entries_per_cell * num_procs; i++)
-		std::cout << (int) recv_buffer[i] << " ";
-	std::cout << std::endl;
     }
 
     return 0;
@@ -147,22 +128,18 @@ std::map<std::string, int> open_pipes(int num_procs)
 		fd = open(pipe_wr.c_str(), O_WRONLY);
 		if (fd == -1)
 		{
-			cout << "[bruck] open error on pipe_wr " << pipe_wr << ": " << strerror(errno) << endl;
+			cerr << "[bruck] open error on pipe_wr " << pipe_wr << ": " << strerror(errno) << endl;
 			exit(-1);
 		}
 		map[pipe_wr] = fd;
 
-		std::cout << "[pairwise] Added " << fd << " at " << pipe_wr << "\n";
-
 		fd = open(pipe_rd.c_str(), O_RDONLY);
 		if (fd == -1)
 		{
-			cout << "[bruck] open error on pipe_rd " << pipe_rd << ": " << strerror(errno) << endl;
+			cerr << "[bruck] open error on pipe_rd " << pipe_rd << ": " << strerror(errno) << endl;
 			exit(-1);
 		}
 		map[pipe_rd] = fd;
-
-		std::cout << "[pairwise] Added " << fd << " at " << pipe_rd << "\n";
 	}
 	return map;
 }
@@ -173,7 +150,7 @@ bool close_pipes(std::map<std::string, int> map)
 	for (auto const& e : map) {
 		if (close(e.second) == -1)
 		{
-			cout << "[bruck] close error on pipe " << e.first << ": " << strerror(errno) << endl;
+			cerr << "[bruck] close error on pipe " << e.first << ": " << strerror(errno) << endl;
 			false;
 		}
 	}
@@ -201,7 +178,7 @@ int main(int argc, char *argv[])
 		myrank = vm["rank"].as<int>();
 	else
 	{
-		cout << "the --rank argument is required" << endl;
+		cerr << "the --rank argument is required" << endl;
 		return -1;
 	}
 
@@ -209,7 +186,7 @@ int main(int argc, char *argv[])
 		num_procs = vm["num_procs"].as<int>();
 	else
 	{
-		cout << "the --num_procs argument is required" << endl;
+		cerr << "the --num_procs argument is required" << endl;
 		return -1;
 	}
 
@@ -217,7 +194,7 @@ int main(int argc, char *argv[])
 		entries_per_cell = vm["entries_per_cell"].as<int>();
 	else
 	{
-		cout << "the --entries_per_cell argument is required" << endl;
+		cerr << "the --entries_per_cell argument is required" << endl;
 		return -1;
 	}
 
@@ -226,7 +203,7 @@ int main(int argc, char *argv[])
 	rbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!rbuf)
 	{
-		cout << "malloc failed: " << strerror(errno) << endl;
+		cerr << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 
@@ -237,7 +214,7 @@ int main(int argc, char *argv[])
 	sbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!sbuf)
 	{
-		cout << "malloc failed: " << strerror(errno) << endl;
+		cerr << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 

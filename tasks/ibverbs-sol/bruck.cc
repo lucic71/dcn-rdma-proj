@@ -30,7 +30,7 @@ ssize_t readall(int fd, void *buff, size_t nbyte) {
 		if (res == 0) break;
 		if (res == -1)
 		{
-			cout << "error read: " << strerror(errno) << std::endl;
+			cerr << "error read: " << strerror(errno) << std::endl;
 			return -1;
 		}
 		nread += res;
@@ -46,7 +46,7 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 		if (res == 0) break;
 		if (res == -1)
 		{
-			cout << "error write: " << strerror(errno) << std::endl;
+			cerr << "error write: " << strerror(errno) << std::endl;
 			return -1;
 		}
 		nwrote += res;
@@ -74,20 +74,9 @@ int alltoall_bruck(const void* sendbuf,
     char* recv_buffer = (char*)recvbuf;
     ssize_t ret;
 
-    std::cout << "initial recv_buffer: ";
-    for (int i = 0; i < entries_per_cell*bytes_per_entry*num_procs; i++)
-        std::cout << (int) recv_buffer[i] << ", ";
-    std::cout << std::endl;
-
     if (sendbuf != recvbuf) {
-        std::cout << "sendbuf != recvbuf, doing a memcpy\n";
         memcpy(recvbuf, sendbuf, entries_per_cell*bytes_per_entry*num_procs);
     }
-
-    std::cout << "recv_buffer after memcpy: ";
-    for (int i = 0; i < entries_per_cell*bytes_per_entry*num_procs; i++)
-        std::cout << (int) recv_buffer[i] << ", ";
-    std::cout << std::endl;
 
     // Perform all-to-all
     int stride, ctr, group_size;
@@ -102,27 +91,17 @@ int alltoall_bruck(const void* sendbuf,
 
     // 1. rotate local data
     if (rank) {
-        std::cout << "rotating the recv_buffer\n";
         rotate(recv_buffer, rank*msg_size, num_procs*msg_size);
     }
-
-    std::cout << "recv_buffer after rotate: ";
-    for (int i = 0; i < entries_per_cell*bytes_per_entry*num_procs; i++)
-        std::cout << (int) recv_buffer[i] << ", ";
-    std::cout << std::endl;
 
     // 2. send to left, recv from right
     stride = 1;
     for (int i = 0; i < num_steps; i++)
     {
-        std::cout << "enter loop, stride: " << stride << endl;
-
         read_proc = rank - stride;
         if (read_proc < 0) read_proc += num_procs;
         write_proc = rank + stride;
         if (write_proc >= num_procs) write_proc -= num_procs;
-
-        std::cout << "read_proc: " << read_proc << ", write_proc: " << write_proc << endl;
 
         group_size = stride * entries_per_cell;
         
@@ -133,7 +112,6 @@ int alltoall_bruck(const void* sendbuf,
             {
                 for (int k = 0; k < bytes_per_entry; k++)
                 {
-                    std::cout << "contig_buf[" << ctr*bytes_per_entry+k << "] takes value: " << (int) recv_buffer[(i+j)*bytes_per_entry+k] << ", from index: " << (i+j)*bytes_per_entry+k << std::endl;
                     contig_buf[ctr*bytes_per_entry+k] = recv_buffer[(i+j)*bytes_per_entry+k];
                 }
                 ctr++;
@@ -143,37 +121,19 @@ int alltoall_bruck(const void* sendbuf,
         size = ((int)(total_cells / group_size) * group_size) / 2;
 	size *= bytes_per_entry;
 
-        std::cout << "contig_buf: ";
-        for (int i = 0; i < size; i++)
-            std::cout << (int) contig_buf[i] << " ";
-        std::cout << std::endl;
-
-	std::cout << "[bruck] going to write bytes " << size << std::endl;
         ret = rwrite(write_proc, contig_buf, size);
 	if (ret != size) 
 	{
-		cout << "rwrite only wrote " << ret << " bytes: " << strerror(ret) << endl;
+		cerr << "rwrite only wrote " << ret << " bytes: " << strerror(ret) << endl;
 		exit(-1);
 	}
-        std::cout << "rwrite ok" << std::endl;
 
         ret = rread(read_proc, tmpbuf, size);
 	if (ret != size)
 	{
-		cout << "rread only read " << ret << " bytes: " << strerror(ret) << endl;
+		cerr << "rread only read " << ret << " bytes: " << strerror(ret) << endl;
 		exit(-1);
 	}
-        std::cout << "rread ok" << std::endl;
-
-        std::cout << "tmpbuf: ";
-        for (int i = 0; i < size; i++)
-       	    std::cout << (int) tmpbuf[i] << ", ";
-        std::cout << std::endl;
-
-        std::cout << "recv_buffer before processing: ";
-        for (int i = 0; i < size; i++)
-       	    std::cout << (int) recv_buffer[i] << ", ";
-        std::cout << std::endl;
 
         ctr = 0;
         for (int i = group_size; i < total_cells; i += (group_size*2))
@@ -188,25 +148,13 @@ int alltoall_bruck(const void* sendbuf,
             }
         }
 
-        std::cout << "recv_buffer after processing: ";
-        for (int i = 0; i < size; i++)
-       	    std::cout << (int) recv_buffer[i] << ", ";
-        std::cout << std::endl;
-
         stride *= 2;
     } 
 
     // 3. rotate local data
     if (rank < num_procs) {
-        std::cout << "final rotate of recv_buffer\n";
         rotate(recv_buffer, (rank+1)*msg_size, num_procs*msg_size);
     }
-
-    std::cout << "final recv_buffer: ";
-    for (int i = 0; i < entries_per_cell*bytes_per_entry*num_procs; i++)
-        std::cout << (int) recv_buffer[i] << ", ";
-    std::cout << std::endl;
-
 
     // TODO :: REVERSE!
 
@@ -228,7 +176,7 @@ std::map<std::string, int> open_pipes(int num_procs)
 		fd = open(pipe_wr.c_str(), O_WRONLY);
 		if (fd == -1)
 		{
-			cout << "[bruck] open error on pipe_wr " << pipe_wr << ": " << strerror(errno) << endl;
+			cerr << "[bruck] open error on pipe_wr " << pipe_wr << ": " << strerror(errno) << endl;
 			exit(-1);
 		}
 		map[pipe_wr] = fd;
@@ -236,7 +184,7 @@ std::map<std::string, int> open_pipes(int num_procs)
 		fd = open(pipe_rd.c_str(), O_RDONLY);
 		if (fd == -1)
 		{
-			cout << "[bruck] open error on pipe_rd " << pipe_rd << ": " << strerror(errno) << endl;
+			cerr << "[bruck] open error on pipe_rd " << pipe_rd << ": " << strerror(errno) << endl;
 			exit(-1);
 		}
 		map[pipe_rd] = fd;
@@ -250,7 +198,7 @@ bool close_pipes(std::map<std::string, int> map)
 	for (auto const& e : map) {
 		if (close(e.second) == -1)
 		{
-			cout << "[bruck] close error on pipe " << e.first << ": " << strerror(errno) << endl;
+			cerr << "[bruck] close error on pipe " << e.first << ": " << strerror(errno) << endl;
 			false;
 		}
 	}
@@ -278,7 +226,7 @@ int main(int argc, char *argv[])
 		myrank = vm["rank"].as<int>();
 	else
 	{
-		cout << "the --rank argument is required" << endl;
+		cerr << "the --rank argument is required" << endl;
 		return -1;
 	}
 
@@ -286,7 +234,7 @@ int main(int argc, char *argv[])
 		num_procs = vm["num_procs"].as<int>();
 	else
 	{
-		cout << "the --num_procs argument is required" << endl;
+		cerr << "the --num_procs argument is required" << endl;
 		return -1;
 	}
 
@@ -294,7 +242,7 @@ int main(int argc, char *argv[])
 		entries_per_cell = vm["entries_per_cell"].as<int>();
 	else
 	{
-		cout << "the --entries_per_cell argument is required" << endl;
+		cerr << "the --entries_per_cell argument is required" << endl;
 		return -1;
 	}
 
@@ -303,14 +251,14 @@ int main(int argc, char *argv[])
 	rbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!rbuf)
 	{
-		cout << "malloc failed: " << strerror(errno) << endl;
+		cerr << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 
 	sbuf = (int *) malloc(sizeof(int) * entries_per_cell * num_procs);
 	if (!sbuf)
 	{
-		cout << "malloc failed: " << strerror(errno) << endl;
+		cerr << "malloc failed: " << strerror(errno) << endl;
 		return -1;
 	}
 

@@ -208,8 +208,6 @@ int main(int argc, char *argv[])
 	if (vm.count("server"))
 		server = true;
 
-	std::cout << "[rdma-" << port << "] parsing args ok\n";
-
 	// populate dev_list using ibv_get_device_list - use num_devices as argument
 	dev_list = ibv_get_device_list(&num_devices);
 	if (!dev_list)
@@ -236,7 +234,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	std::cout << "[rdma-" << port << "] got ibv dev ok\n";
 
 	// allocate a PD (protection domain), using ibv_alloc_pd
 	pd = ibv_alloc_pd(context);
@@ -261,7 +258,6 @@ int main(int argc, char *argv[])
 		cerr << "[rdma-" << port << "] ibv_create_cq - recv - failed: " << strerror(errno) << endl;
 		goto free_send_cq;
 	}
-	std::cout << "[rdma-" << port << "] allocated pd cq ok\n";
 
 	memset(&qp_init_attr, 0, sizeof(qp_init_attr));
 
@@ -320,7 +316,6 @@ int main(int argc, char *argv[])
 		cerr << "[rdma-" << port << "] ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
 		goto free_write_qp;
 	}
-	std::cout << "[rdma-" << port << "] initialized rdma internal structs ok\n";
 
 	// use ibv_query_port to get information about port number 1
 	ibv_query_port(context, 1, &port_attr);
@@ -358,7 +353,6 @@ int main(int argc, char *argv[])
 		cerr << "[rdma-" << port << "] Given IP not found in GID table" << endl;
 		goto free_write_qp;
 	}
-	std::cout << "[rdma-" << port << "] initialized git index ok\n";
 
 	write_mr = ibv_reg_mr(pd, shared_buf, sizeof(shared_buf), flags);
 	if (!write_mr)
@@ -370,7 +364,6 @@ int main(int argc, char *argv[])
 	memcpy(&local.write_mr, write_mr, sizeof(local.write_mr));
 	local.send_qp_num = send_qp->qp_num;
 	local.write_qp_num = write_qp->qp_num;
-	std::cout << "[rdma-" << port << "] registered buffers ok\n";
 
 	// exchange data between the 2 applications
 	if(server)
@@ -410,7 +403,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	std::cout << "[rdma-" << port << "] send/recv handshake ok\n";
 
 	memset(&qp_attr, 0, sizeof(qp_attr));
 
@@ -481,7 +473,6 @@ int main(int argc, char *argv[])
 		cerr << "[rdma-" << port << "] ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
-	std::cout << "[rdma-" << port << "] modified qps ok\n";
 
 	if (server)
 		pipefd = open(pipe.c_str(), O_RDONLY);
@@ -492,7 +483,6 @@ int main(int argc, char *argv[])
 		cerr << "[rdma-" << port << "] open failed: " << strerror(errno) << endl;
 		return 1;
 	}
-	std::cout << "[rdma-" << port << "] opened pipe ok\n";
 
 	memset(shared_buf, 0x80, sizeof(shared_buf));
 
@@ -503,7 +493,6 @@ int main(int argc, char *argv[])
 
 			memset(shared_buf, 0xff, sizeof(shared_buf));
 
-			std::cout << "[rdma-" << port << "] [server] going to read bytes " << datasize << std::endl;
 			ret = readall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
@@ -511,11 +500,6 @@ int main(int argc, char *argv[])
 				goto free_write_mr;
 			}
 			sleep(2); // TODO: make this smaller
-
-			cout << "[rdma-" << port << "] [server] ret: " << ret << std::endl;
-			cout << "[rdma-" << port << "] [server] shared_buf: ";
-			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
-			std::cout << "[rdma-" << port << "] \n";
 
 			// initialise sg_write with the write mr address, size and lkey
 			memset(&sg_write, 0, sizeof(sg_write));
@@ -545,7 +529,6 @@ int main(int argc, char *argv[])
 				cerr << "[rdma-" << port << "] ibv_post_send failed: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
-			cout << "[rdma-" << port << "] [server] sent data to client\n";
 			usleep(50000);
 		}
 	}
@@ -592,17 +575,12 @@ int main(int argc, char *argv[])
 				goto free_write_mr;
 			}
 
-			cout << "[rdma-" << port << "] [client] shared_buf: ";
-			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
-			std::cout << "\n";
-
 			ret = writeall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
 				cerr << "[rdma-" << port << "] writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
-			cout << "[rdma-" << port << "] writeall success\n";
 		}
 	}
 
