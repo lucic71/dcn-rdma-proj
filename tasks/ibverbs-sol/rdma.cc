@@ -60,10 +60,14 @@ ssize_t readall(int fd, void *buff, size_t nbyte) {
 	char *cbuff = (char *) buff;
 	while (nread < nbyte) {
 		res = read(fd, cbuff+nread, nbyte-nread);
-		if (res == 0) break;
+		if (res == 0)
+		{
+			cerr << "[rdma-" << port << "] read ret 0\n";
+			break;
+		}
 		if (res == -1)
 		{
-			cerr << "error read\n";
+			cerr << "[rdma-" << port << "] error read\n";
 			exit(-1);
 		}
 		nread += res;
@@ -79,7 +83,7 @@ ssize_t writeall(int fd, void *buff, size_t nbyte) {
 		if (res == 0) break;
 		if (res == -1)
 		{
-			cerr << "error write\n";
+			cerr << "[rdma-" << port << "] error write\n";
 			exit(-1);
 		}
 		nwrote += res;
@@ -97,7 +101,7 @@ int send_data(const struct device_info &data, string ip)
 	sockfd = socket(AF_INET, SOCK_STREAM, 0); 
 	if (sockfd == -1)
 	{
-		cerr << "error socket\n";
+		cerr << "[rdma-" << port << "] error socket\n";
 		return 1;
 	}
 
@@ -107,7 +111,7 @@ int send_data(const struct device_info &data, string ip)
 
 	if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
 	{
-		cerr << "error connect: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] error connect: " << strerror(errno) << endl;
 		return 1;
 	}
 
@@ -124,7 +128,7 @@ int main(int argc, char *argv[])
 	int num_devices, ret;
 	uint32_t gidIndex = 0;
 	string ip_str, remote_ip_str, dev_str;
-	char shared_buf[100];
+	char shared_buf[1000];
 	std::string pipe;
 	int pipefd;
 	int datasize;
@@ -174,43 +178,43 @@ int main(int argc, char *argv[])
 	if (vm.count("dev"))
 		dev_str = vm["dev"].as<string>();
 	else
-		cerr << "the --dev argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --dev argument is required" << endl;
 
 	if (vm.count("datasize"))
 		datasize = vm["datasize"].as<int>();
 	else
-		cerr << "the --datasize argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --datasize argument is required" << endl;
 
 	if (vm.count("port"))
 		port = vm["port"].as<int>();
 	else
-		cerr << "the --port argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --port argument is required" << endl;
 
 	if (vm.count("pipe"))
 		pipe = vm["pipe"].as<string>();
 	else
-		cerr << "the --pipe argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --pipe argument is required" << endl;
 
 	if (vm.count("src_ip"))
 		ip_str = vm["src_ip"].as<string>();
 	else
-		cerr << "the --src_ip argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --src_ip argument is required" << endl;
 
 	if (vm.count("dst_ip"))
 		remote_ip_str = vm["dst_ip"].as<string>();
 	else
-		cerr << "the --dst_ip argument is required" << endl;
+		cerr << "[rdma-" << port << "] the --dst_ip argument is required" << endl;
 
 	if (vm.count("server"))
 		server = true;
 
-	std::cout << "parsing args ok\n";
+	std::cout << "[rdma-" << port << "] parsing args ok\n";
 
 	// populate dev_list using ibv_get_device_list - use num_devices as argument
 	dev_list = ibv_get_device_list(&num_devices);
 	if (!dev_list)
 	{
-		cerr << "ibv_get_device_list failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_get_device_list failed: " << strerror(errno) << endl;
 		return 1;
 	}
 
@@ -220,7 +224,7 @@ int main(int argc, char *argv[])
 		auto dev = ibv_get_device_name(dev_list[i]);
 		if (!dev)
 		{
-			cerr << "ibv_get_device_name failed: " << strerror(errno) << endl;
+			cerr << "[rdma-" << port << "] ibv_get_device_name failed: " << strerror(errno) << endl;
 			goto free_devlist;
 		}
 
@@ -232,13 +236,13 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	std::cout << "got ibv dev ok\n";
+	std::cout << "[rdma-" << port << "] got ibv dev ok\n";
 
 	// allocate a PD (protection domain), using ibv_alloc_pd
 	pd = ibv_alloc_pd(context);
 	if (!pd)
 	{
-		cerr << "ibv_alloc_pd failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_alloc_pd failed: " << strerror(errno) << endl;
 		goto free_context;
 	}
 
@@ -246,7 +250,7 @@ int main(int argc, char *argv[])
 	send_cq = ibv_create_cq(context, 0x10, nullptr, nullptr, 0);
 	if (!send_cq)
 	{
-		cerr << "ibv_create_cq - send - failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_create_cq - send - failed: " << strerror(errno) << endl;
 		goto free_pd;
 	}
 
@@ -254,10 +258,10 @@ int main(int argc, char *argv[])
 	write_cq = ibv_create_cq(context, 0x10, nullptr, nullptr, 0);
 	if (!write_cq)
 	{
-		cerr << "ibv_create_cq - recv - failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_create_cq - recv - failed: " << strerror(errno) << endl;
 		goto free_send_cq;
 	}
-	std::cout << "allocated pd cq ok\n";
+	std::cout << "[rdma-" << port << "] allocated pd cq ok\n";
 
 	memset(&qp_init_attr, 0, sizeof(qp_init_attr));
 
@@ -276,7 +280,7 @@ int main(int argc, char *argv[])
 	send_qp = ibv_create_qp(pd, &qp_init_attr);
 	if (!send_qp)
 	{
-		cerr << "ibv_create_qp failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_create_qp failed: " << strerror(errno) << endl;
 		goto free_write_cq;
 	}
 
@@ -287,7 +291,7 @@ int main(int argc, char *argv[])
 	write_qp = ibv_create_qp(pd, &qp_init_attr);
 	if (!write_qp)
 	{
-		cerr << "ibv_create_qp failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_create_qp failed: " << strerror(errno) << endl;
 		goto free_send_qp;
 	}
 
@@ -305,7 +309,7 @@ int main(int argc, char *argv[])
 						IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
 		goto free_write_qp;
 	}
 
@@ -313,10 +317,10 @@ int main(int argc, char *argv[])
 						IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - INIT - failed: " << strerror(ret) << endl;
 		goto free_write_qp;
 	}
-	std::cout << "initialized rdma internal structs ok\n";
+	std::cout << "[rdma-" << port << "] initialized rdma internal structs ok\n";
 
 	// use ibv_query_port to get information about port number 1
 	ibv_query_port(context, 1, &port_attr);
@@ -351,22 +355,22 @@ int main(int argc, char *argv[])
 	// GID index 0 should never be used
 	if (gidIndex == 0)
 	{
-		cerr << "Given IP not found in GID table" << endl;
+		cerr << "[rdma-" << port << "] Given IP not found in GID table" << endl;
 		goto free_write_qp;
 	}
-	std::cout << "initialized git index ok\n";
+	std::cout << "[rdma-" << port << "] initialized git index ok\n";
 
 	write_mr = ibv_reg_mr(pd, shared_buf, sizeof(shared_buf), flags);
 	if (!write_mr)
 	{
-		cerr << "ibv_reg_mr failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] ibv_reg_mr failed: " << strerror(errno) << endl;
 		goto free_send_mr;
 	}
 
 	memcpy(&local.write_mr, write_mr, sizeof(local.write_mr));
 	local.send_qp_num = send_qp->qp_num;
 	local.write_qp_num = write_qp->qp_num;
-	std::cout << "registered buffers ok\n";
+	std::cout << "[rdma-" << port << "] registered buffers ok\n";
 
 	// exchange data between the 2 applications
 	if(server)
@@ -374,14 +378,14 @@ int main(int argc, char *argv[])
 		ret = receive_data(remote);
 		if (ret != 0)
 		{
-			cerr << "receive_data failed: " << endl;
+			cerr << "[rdma-" << port << "] receive_data failed: " << endl;
 			goto free_write_mr;
 		}
 
 		ret = send_data(local, remote_ip_str);
 		if (ret != 0)
 		{
-			cerr << "send_data failed: " << endl;
+			cerr << "[rdma-" << port << "] send_data failed: " << endl;
 			goto free_write_mr;
 		}
 	}
@@ -392,7 +396,7 @@ int main(int argc, char *argv[])
 			if (ret != 0)
 			{
 				int secs = 5;
-				cerr << "send_data failed, retrying in secs " << secs << endl;
+				cerr << "[rdma-" << port << "] send_data failed, retrying in secs " << secs << endl;
 				sleep(secs);
 				continue;
 			}
@@ -400,13 +404,13 @@ int main(int argc, char *argv[])
 			ret = receive_data(remote);
 			if (ret != 0)
 			{
-				cerr << "receive_data failed: " << endl;
+				cerr << "[rdma-" << port << "] receive_data failed: " << endl;
 				goto free_write_mr;
 			}
 			break;
 		}
 	}
-	std::cout << "send/recv handshake ok\n";
+	std::cout << "[rdma-" << port << "] send/recv handshake ok\n";
 
 	memset(&qp_attr, 0, sizeof(qp_attr));
 
@@ -437,7 +441,7 @@ int main(int argc, char *argv[])
 
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - RTR - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - RTR - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
 
@@ -450,7 +454,7 @@ int main(int argc, char *argv[])
 
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - RTR - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - RTR - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
 
@@ -466,7 +470,7 @@ int main(int argc, char *argv[])
 						IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC);
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
 
@@ -474,10 +478,10 @@ int main(int argc, char *argv[])
 						IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC);
 	if (ret != 0)
 	{
-		cerr << "ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
+		cerr << "[rdma-" << port << "] ibv_modify_qp - RTS - failed: " << strerror(ret) << endl;
 		goto free_write_mr;
 	}
-	std::cout << "modified qps ok\n";
+	std::cout << "[rdma-" << port << "] modified qps ok\n";
 
 	if (server)
 		pipefd = open(pipe.c_str(), O_RDONLY);
@@ -485,31 +489,33 @@ int main(int argc, char *argv[])
 		pipefd = open(pipe.c_str(), O_WRONLY);
 
 	if (pipefd == -1) {
-		cerr << "open failed: " << strerror(errno) << endl;
+		cerr << "[rdma-" << port << "] open failed: " << strerror(errno) << endl;
 		return 1;
 	}
-	std::cout << "opened pipe ok\n";
+	std::cout << "[rdma-" << port << "] opened pipe ok\n";
 
-	memset(shared_buf, 0, sizeof(shared_buf));
+	memset(shared_buf, 0x80, sizeof(shared_buf));
 
 	if (server)
 	{
 		while (1) {
 			int ret;
 
-			memset(shared_buf, 0, 100);
+			memset(shared_buf, 0xff, sizeof(shared_buf));
 
-			std::cout << "[server] going to read bytes " << datasize << std::endl;
+			std::cout << "[rdma-" << port << "] [server] going to read bytes " << datasize << std::endl;
 			ret = readall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
-				cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
+				cerr << "[rdma-" << port << "] readall only read " << ret << " bytes: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
+			sleep(2); // TODO: make this smaller
 
-			cout << "[server] shared_buf: ";
+			cout << "[rdma-" << port << "] [server] ret: " << ret << std::endl;
+			cout << "[rdma-" << port << "] [server] shared_buf: ";
 			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
-			std::cout << "\n";
+			std::cout << "[rdma-" << port << "] \n";
 
 			// initialise sg_write with the write mr address, size and lkey
 			memset(&sg_write, 0, sizeof(sg_write));
@@ -536,10 +542,10 @@ int main(int argc, char *argv[])
 			ret = ibv_post_send(write_qp, &wr_write, &bad_wr_write);
 			if (ret != 0)
 			{
-				cerr << "ibv_post_send failed: " << strerror(ret) << endl;
+				cerr << "[rdma-" << port << "] ibv_post_send failed: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
-			cout << "[server] sent data to client\n";
+			cout << "[rdma-" << port << "] [server] sent data to client\n";
 			usleep(50000);
 		}
 	}
@@ -563,7 +569,7 @@ int main(int argc, char *argv[])
 			ret = ibv_post_recv(write_qp, &wr_recv, &bad_wr_recv);
 			if (ret != 0)
 			{
-				cerr << "ibv_post_recv failed: " << strerror(ret) << endl;
+				cerr << "[rdma-" << port << "] ibv_post_recv failed: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
 
@@ -582,21 +588,21 @@ int main(int argc, char *argv[])
 			//         return error on anything different than ibv_wc_status::IBV_WC_SUCCESS
 			if (wc.status != ibv_wc_status::IBV_WC_SUCCESS)
 			{
-				cerr << "ibv_poll_cq failed: " << ibv_wc_status_str(wc.status) << endl;
+				cerr << "[rdma-" << port << "] ibv_poll_cq failed: " << ibv_wc_status_str(wc.status) << endl;
 				goto free_write_mr;
 			}
 
-			cout << "[client] shared_buf: ";
+			cout << "[rdma-" << port << "] [client] shared_buf: ";
 			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
 			std::cout << "\n";
 
 			ret = writeall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
-				cerr << "writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
+				cerr << "[rdma-" << port << "] writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
-			cout << "writeall success\n";
+			cout << "[rdma-" << port << "] writeall success\n";
 		}
 	}
 
