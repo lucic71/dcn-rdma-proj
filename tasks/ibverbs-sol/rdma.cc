@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	int num_devices, ret;
 	uint32_t gidIndex = 0;
 	string ip_str, remote_ip_str, dev_str;
-	char data_send[100], data_write[100];
+	char shared_buf[100];
 	std::string pipe;
 	int pipefd;
 	int datasize;
@@ -356,16 +356,7 @@ int main(int argc, char *argv[])
 	}
 	std::cout << "initialized git index ok\n";
 
-	// register the "data_send" and "data_write" buffers for RDMA operations, using ibv_reg_mr;
-	// store the resulting mrs in send_mr and write_mr
-	send_mr = ibv_reg_mr(pd, data_send, sizeof(data_send), flags);
-	if (!send_mr)
-	{
-		cerr << "ibv_reg_mr failed: " << strerror(errno) << endl;
-		goto free_write_qp;
-	}
-
-	write_mr = ibv_reg_mr(pd, data_write, sizeof(data_write), flags);
+	write_mr = ibv_reg_mr(pd, shared_buf, sizeof(shared_buf), flags);
 	if (!write_mr)
 	{
 		cerr << "ibv_reg_mr failed: " << strerror(errno) << endl;
@@ -499,28 +490,31 @@ int main(int argc, char *argv[])
 	}
 	std::cout << "opened pipe ok\n";
 
-	memset(data_send, 0, sizeof(data_send));
-	memset(data_write, 0, sizeof(data_write));
+	memset(shared_buf, 0, sizeof(shared_buf));
 
 	if (server)
 	{
 		while (1) {
 			int ret;
 
-			memset(data_write, 0, 100);
+			memset(shared_buf, 0, 100);
 
-			ret = readall(pipefd, data_write, datasize);
+			std::cout << "[server] going to read bytes " << datasize << std::endl;
+			ret = readall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
 				cerr << "readall only read " << ret << " bytes: " << strerror(ret) << endl;
 				goto free_write_mr;
 			}
-			cout << "readall success\n";
+
+			cout << "[server] shared_buf: ";
+			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
+			std::cout << "\n";
 
 			// initialise sg_write with the write mr address, size and lkey
 			memset(&sg_write, 0, sizeof(sg_write));
 			sg_write.addr   = (uintptr_t)write_mr->addr;
-			sg_write.length = sizeof(data_write);
+			sg_write.length = datasize;
 			sg_write.lkey   = write_mr->lkey;
 			
 			// create a work request, with the Write With Immediate operation
@@ -538,6 +532,7 @@ int main(int argc, char *argv[])
 			wr_write.wr.rdma.rkey        = remote.write_mr.rkey;
 
 			// post the work request, using ibv_post_send
+			errno = 0;
 			ret = ibv_post_send(write_qp, &wr_write, &bad_wr_write);
 			if (ret != 0)
 			{
@@ -556,7 +551,7 @@ int main(int argc, char *argv[])
 			// initialise sg_write with the write mr address, size and lkey
 			memset(&sg_recv, 0, sizeof(sg_recv));
 			sg_recv.addr   = (uintptr_t)write_mr->addr;
-			sg_recv.length = sizeof(data_write);
+			sg_recv.length = datasize;
 			sg_recv.lkey   = write_mr->lkey;
 
 			memset(&wr_recv, 0, sizeof(wr_recv));
@@ -591,9 +586,11 @@ int main(int argc, char *argv[])
 				goto free_write_mr;
 			}
 
-			cout << "[client] " << data_write << endl;
+			cout << "[client] shared_buf: ";
+			for (int i = 0; i < datasize; i++) std::cout << (int) shared_buf[i] << ", ";
+			std::cout << "\n";
 
-			ret = writeall(pipefd, data_write, datasize);
+			ret = writeall(pipefd, shared_buf, datasize);
 			if (ret != datasize)
 			{
 				cerr << "writeall only wrote " << ret << " bytes: " << strerror(ret) << endl;
