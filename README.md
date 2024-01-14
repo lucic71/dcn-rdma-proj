@@ -67,7 +67,7 @@ while bruck creates P/2 * entries_per_cell * bytes_per_entry * log(P) messages.
 
 Using `rdma statistic` I observed that for each RDMA message that is sent from a
 VM, 2 RDMA packets are created, e.g. these are the statistics generated for a
-full bruck:
+full bruck with P=4:
 ```
 link enp0s3rxe/1 sent_pkts 8 rcvd_pkts 8 duplicate_request 0 out_of_seq_request 0 rcvd_rnr_err 0 send_rnr_err 0 rcvd_seq_err 0 ack_deferred 0 retry_exceeded_err 0 retry_rnr_exceeded_err 0 completer_retry_err 0 send_err 0 link_downed 0 rdma_sends 0 rdma_recvs 4
 ```
