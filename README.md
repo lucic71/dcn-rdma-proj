@@ -62,20 +62,18 @@ simlify the protocol.
 
 ## Measurements
 
-In total, pairwise creates (P-1) * entries_per_cell * bytes_per_entry messages
-while bruck creates P/2 * entries_per_cell * bytes_per_entry * log(P) messages.
+In total, pairwise creates (P-1) messages while bruck creates P/2 * log(P)
+messages.
 
 Using `rdma statistic` I observed that for each RDMA message that is sent from a
 VM, 2 RDMA packets are created, e.g. these are the statistics generated for a
-full bruck with P=4:
+full bruck with P=4, entries_per_cell=1, bytes_per_entry=4:
 ```
 link enp0s3rxe/1 sent_pkts 8 rcvd_pkts 8 duplicate_request 0 out_of_seq_request 0 rcvd_rnr_err 0 send_rnr_err 0 rcvd_seq_err 0 ack_deferred 0 retry_exceeded_err 0 retry_rnr_exceeded_err 0 completer_retry_err 0 send_err 0 link_downed 0 rdma_sends 0 rdma_recvs 4
 ```
 
-In this case, the total number of generated packets for brucks is P *
-entries_per_cell * bytes_per_entry * log(P) and for pairwise is 2 * (P - 1) *
-entries_per_cell * bytes_per_entry.
+In this case, the total number of generated packets for brucks is P * log(P)
+and for pairwise is 2 * (P - 1).
 
 Because of this pairwise has a great advantage because it creates less packets
 even though it takes more communicaiton rounds to finish.
-
